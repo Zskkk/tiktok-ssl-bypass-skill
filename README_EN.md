@@ -12,12 +12,6 @@ For **authorized security testing, protocol analysis, and education only** (your
 
 ---
 
-## Why normal SSL bypasses fail on TikTok
-
-TikTok and Douyin ship Google's **Cronet** stack — Chromium's network layer extracted into an SDK, bundled as `libsscronet.so`. Certificate verification (including SSL Pinning) happens entirely in **native code** via BoringSSL's `SSL_CTX_set_custom_verify` — **below the Java layer**.
-
-That's why Java-level tricks (JustTrustMe, okhttp hooks, trusting a user CA) **do not work**. Symptom: the network is fine but the app errors out and your proxy shows `certificate_unknown`.
-
 **Core idea:** In `SSL_CTX_set_custom_verify(ctx, mode, callback)`, the third argument `callback` is the app's own verifier; returning `0` means success (`ssl_verify_ok`). Hook that callback and force it to return `0` to bypass pinning globally.
 
 ```
@@ -35,11 +29,6 @@ Full reversing workflow: [`skills/rev-cronet-ssl/SKILL.md`](skills/rev-cronet-ss
 | `skills/rev-cronet-ssl/SKILL.md` | The skill: activation triggers, detection theory, **IDA MCP workflow**, bypass decision tree |
 | `skills/rev-cronet-ssl/assets/cronet_ssl_bypass.js` | **Universal template** — multi-module, dlopen + polling detection, export + offset strategies; tune `CONFIG` per target version |
 | `skills/rev-cronet-ssl/assets/tiktok_ssl_bypass.js` | **Ready-to-run example** — verified on TikTok `45.7.1`, with polling detection and IDA-confirmed offsets |
-
-### Which script?
-
-- **Capturing TikTok 45.7.1 right now** → use `tiktok_ssl_bypass.js` as-is.
-- **Other versions / Douyin / other ByteDance apps** → use `cronet_ssl_bypass.js` and follow the SKILL.md IDA MCP flow to find this version's export/offset, then fill in `CONFIG`.
 
 > Most public scripts hook `android_dlopen_ext` to wait for the `.so` to load — but **newer ByteDance builds use bytehook/custom loaders, so that hook never fires** and the script silently fails. The scripts here **poll** for the module instead, avoiding this pitfall.
 
@@ -64,8 +53,6 @@ frida -U -f com.zhiliaoapp.musically \
 frida -U -f com.ss.android.ugc.aweme \
       -l skills/rev-cronet-ssl/assets/cronet_ssl_bypass.js
 ```
-
-> The modern Frida CLI has **no `--no-pause`**; the process resumes automatically after the script loads.
 
 ### Success output
 
@@ -103,13 +90,3 @@ Then ask Claude: "use rev-cronet-ssl with IDA MCP to produce a Frida script that
 | Douyin | `com.ss.android.ugc.aweme` | `libsscronet.so` |
 
 TikTok and Douyin share the same protocol stack (only offsets differ by build). For geo-restricted TikTok: remove the SIM, set device locale/timezone overseas, route the IP overseas.
-
-## Versioning notes
-
-- The export-based strategy (hook `SSL_CTX_set_custom_verify`, force callback return) usually survives **minor** version bumps.
-- Fallback offsets are **version-locked**; re-locate them in IDA for major versions.
-- QUIC-only endpoints may evade an HTTP proxy even after pinning is bypassed — that's a protocol issue, not a pinning one.
-
-## License
-
-MIT

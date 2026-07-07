@@ -12,12 +12,6 @@ English: [README_EN.md](README_EN.md)
 
 ---
 
-## 为什么普通 SSL 绕过对 TikTok 无效?
-
-TikTok / 抖音使用 Google 的 **Cronet** 网络栈(从 Chromium 剥离出的 SDK,打包为 `libsscronet.so`)。证书校验(含 SSL Pinning)完全在 **Native 层**通过 BoringSSL 的 `SSL_CTX_set_custom_verify` 完成——**低于 Java 层**。
-
-所以 Java 层的常规手段(JustTrustMe、okhttp hook、系统信任用户 CA)**统统无效**。表现为:网络正常,但 App 报错、代理里看到 `certificate_unknown`。
-
 **核心原理:** `SSL_CTX_set_custom_verify(ctx, mode, callback)` 的第三个参数 `callback` 是应用自定义的校验回调,返回 `0` 表示成功(`ssl_verify_ok`)。Hook 这个回调、强制返回 `0`,即可全局绕过。
 
 ```
@@ -35,13 +29,6 @@ Java API → JNI → Cronet C API → Chromium net stack → BoringSSL(SSL_CTX_s
 | `skills/rev-cronet-ssl/SKILL.md` | 技能主文件:激活触发器、检测原理、**IDA MCP 逆向工作流**、绕过策略决策树 |
 | `skills/rev-cronet-ssl/assets/cronet_ssl_bypass.js` | **通用模板**:多模块、dlopen + 轮询双探测,导出 + offset 双策略,需按目标版本微调 `CONFIG` |
 | `skills/rev-cronet-ssl/assets/tiktok_ssl_bypass.js` | **开箱即用实例**:已在 TikTok `45.7.1` 实测通过,带轮询探测与经 IDA 确认的 offset |
-
-### 两个脚本怎么选?
-
-- **想直接抓 TikTok 45.7.1** → 用 `tiktok_ssl_bypass.js`,无需改动。
-- **其它版本 / 抖音 / 其它字节系 App** → 用 `cronet_ssl_bypass.js` 通用模板,按 SKILL.md 的 IDA MCP 流程定位当前版本的导出/offset 后填入 `CONFIG`。
-
-> 网上现成的脚本大多依赖 hook `android_dlopen_ext` 来等 so 加载——但**新版字节系用 bytehook/自定义加载器,该 hook 不触发**,脚本会静默失效。本仓库的脚本改用**轮询**探测模块,规避了这个坑。
 
 ---
 
@@ -64,8 +51,6 @@ frida -U -f com.zhiliaoapp.musically \
 frida -U -f com.ss.android.ugc.aweme \
       -l skills/rev-cronet-ssl/assets/cronet_ssl_bypass.js
 ```
-
-> 新版 Frida CLI **没有 `--no-pause`**,加载脚本后进程会自动恢复运行。
 
 ### 命中成功的输出
 
@@ -103,12 +88,3 @@ ln -s "$(pwd)/tiktok-ssl-bypass-skill/skills/rev-cronet-ssl" \
 | 抖音 | `com.ss.android.ugc.aweme` | `libsscronet.so` |
 
 TikTok 与抖音共用同一套协议栈,思路互通(仅 offset 因版本而异)。TikTok 地区限制:拔 SIM 卡 + 设备语言/时区改海外 + IP 走海外。
-
-## 版本适配说明
-
-- 导出式策略(hook `SSL_CTX_set_custom_verify` 改回调返回值)一般能扛过**小版本**更新。
-- fallback 的 offset 是**锁死具体版本**的,大版本变了需用 IDA 重新定位。
-- QUIC-only 接口即使绕过 pinning 也可能逃过 HTTP 代理,那是协议层问题,非 pinning 问题。
-
-## License
-MIT
