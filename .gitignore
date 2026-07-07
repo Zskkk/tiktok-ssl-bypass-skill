@@ -1,0 +1,52 @@
+# Reverse-engineering artifacts — never commit binaries or captured data
+*.so
+*.so.*
+*.apk
+*.apks
+*.xapk
+*.dex
+*.odex
+*.dump
+*.i64
+*.idb
+*.til
+*.nam
+*.id0
+*.id1
+*.id2
+
+# Captured / dumped data (may contain sensitive traffic, tokens, PII)
+*.pcap
+*.pcapng
+*.har
+dumps/
+captures/
+*.dump.so
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Node (if anyone runs node --check / tooling here)
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs / scratch
+*.log
+logcat.txt
+scratch/
+tmp/
